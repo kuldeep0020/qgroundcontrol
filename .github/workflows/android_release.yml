@@ -6,6 +6,7 @@ on:
     branches:
       - 'master'
       - 'Stable*'
+      - feat/*
     tags:
       - 'v*'
     paths-ignore:
