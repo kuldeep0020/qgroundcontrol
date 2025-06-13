@@ -20,6 +20,7 @@ Item {
 
     property int    _track_rec_x:       0
     property int    _track_rec_y:       0
+    property var    _activeVehicle:     QGroundControl.multiVehicleManager.activeVehicle
 
     property Item pipState: videoPipState
     QGCPipState {
@@ -67,6 +68,155 @@ Item {
         source:         QGroundControl.videoManager.uvcEnabled ? "qrc:/qml/FlightDisplayViewUVC.qml" : "qrc:/qml/FlightDisplayViewDummy.qml"
     }
 
+    // Center Crosshair
+    Item {
+        id: centerCrosshair
+        anchors.centerIn: parent
+        width: 40
+        height: 40
+        visible: QGroundControl.videoManager.hasVideo
+
+        // Green circle around center
+        Rectangle {
+            id: greenCircle
+            anchors.centerIn: parent
+            width: 30
+            height: 30
+            radius: 15
+            color: "transparent"
+            border.color: "green"
+            border.width: 2
+        }
+
+        // Red center dot
+        Rectangle {
+            id: redDot
+            anchors.centerIn: parent
+            width: 6
+            height: 6
+            radius: 3
+            color: "red"
+        }
+    }
+
+    // Telemetry Information Rectangle
+    Rectangle {
+        id: telemetryInfo
+        anchors.top: parent.top
+        anchors.left: parent.left
+        anchors.margins: 10
+        width: 250
+        height: 200
+        color: Qt.rgba(0, 0, 0, 0.7)
+        border.color: "white"
+        border.width: 1
+        radius: 5
+        visible: _activeVehicle && QGroundControl.videoManager.hasVideo
+
+        Column {
+            anchors.fill: parent
+            anchors.margins: 8
+            spacing: 4
+
+            QGCLabel {
+                text: "TELEMETRY DATA"
+                color: "white"
+                font.bold: true
+                font.pointSize: ScreenTools.smallFontPointSize
+            }
+
+            QGCLabel {
+                text: "Altitude: " + (_activeVehicle ? _activeVehicle.altitudeRelative.valueString + " " + _activeVehicle.altitudeRelative.units : "N/A")
+                color: "white"
+                font.pointSize: ScreenTools.smallFontPointSize
+            }
+
+            QGCLabel {
+                text: "Drone Pitch: " + (_activeVehicle ? _activeVehicle.pitch.valueString + "°" : "N/A")
+                color: "white"
+                font.pointSize: ScreenTools.smallFontPointSize
+            }
+
+            QGCLabel {
+                text: "Gimbal Pitch: " + getGimbalPitch()
+                color: "white"
+                font.pointSize: ScreenTools.smallFontPointSize
+            }
+
+            QGCLabel {
+                text: "Gimbal Yaw: " + getGimbalYaw()
+                color: "white"
+                font.pointSize: ScreenTools.smallFontPointSize
+            }
+
+            QGCLabel {
+                text: "Total Pitch: " + getTotalPitch()
+                color: "white"
+                font.pointSize: ScreenTools.smallFontPointSize
+            }
+
+            QGCLabel {
+                text: "Latitude: " + (_activeVehicle ? _activeVehicle.coordinate.latitude.toFixed(6) : "N/A")
+                color: "white"
+                font.pointSize: ScreenTools.smallFontPointSize
+            }
+
+            QGCLabel {
+                text: "Longitude: " + (_activeVehicle ? _activeVehicle.coordinate.longitude.toFixed(6) : "N/A")
+                color: "white"
+                font.pointSize: ScreenTools.smallFontPointSize
+            }
+
+            QGCLabel {
+                text: "Target Distance: " + getTargetDistance()
+                color: "white"
+                font.pointSize: ScreenTools.smallFontPointSize
+            }
+        }
+
+        // Helper functions
+        function getGimbalPitch() {
+            if (_activeVehicle && _activeVehicle.gimbalController && _activeVehicle.gimbalController.activeGimbal) {
+                return _activeVehicle.gimbalController.activeGimbal.absolutePitch.valueString + "°"
+            }
+            return "N/A"
+        }
+
+        function getGimbalYaw() {
+            if (_activeVehicle && _activeVehicle.gimbalController && _activeVehicle.gimbalController.activeGimbal) {
+                return _activeVehicle.gimbalController.activeGimbal.absoluteYaw.valueString + "°"
+            }
+            return "N/A"
+        }
+
+        function getTotalPitch() {
+            if (_activeVehicle && _activeVehicle.gimbalController && _activeVehicle.gimbalController.activeGimbal) {
+                var gimbalPitch = _activeVehicle.gimbalController.activeGimbal.absolutePitch.rawValue
+                var vehiclePitch = _activeVehicle.pitch.rawValue
+                var total = (-1 * gimbalPitch) + vehiclePitch
+                return total.toFixed(2) + "°"
+            }
+            return "N/A"
+        }
+
+        function getTargetDistance() {
+            if (_activeVehicle && _activeVehicle.gimbalController && _activeVehicle.gimbalController.activeGimbal) {
+                var altitude = _activeVehicle.altitudeRelative.rawValue
+                var gimbalPitch = _activeVehicle.gimbalController.activeGimbal.absolutePitch.rawValue
+                var vehiclePitch = _activeVehicle.pitch.rawValue
+                var totalPitch = (-1 * gimbalPitch) + vehiclePitch
+                
+                // Convert to radians and calculate distance
+                var totalPitchRad = totalPitch * Math.PI / 180
+                if (Math.abs(totalPitchRad) > 0.001) { // Avoid division by zero
+                    var distance = altitude / Math.tan(Math.abs(totalPitchRad))
+                    return distance.toFixed(1) + " m"
+                }
+            }
+            return "N/A"
+        }
+    }
+
     QGCLabel {
         text: qsTr("Double-click to exit full screen")
         font.pointSize: ScreenTools.largeFontPointSize
@@ -99,7 +249,7 @@ Item {
     MouseArea {
         id:                         flyViewVideoMouseArea
         anchors.fill:               parent
-        enabled:                    pipState.state === pipState.fullState
+        enabled:                    true
         hoverEnabled:               true
 
         property double x0:         0
